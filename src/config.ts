@@ -155,8 +155,8 @@ export const config = {
   bike: {
     /** Handlebar span in world units; sets the sprite size at the player's distance. */
     width: 230,
-    /** Pixels the bike sits above the bottom edge of the canvas. */
-    bottomMargin: 8,
+    /** Pixels the bike sits above the bottom edge of the canvas (keeps tyre, shadow and a leaning bike fully on screen). */
+    bottomMargin: 30,
     /** Lean angle at full lean (radians). */
     maxLeanAngle: 0.4,
     /** Bounce height in pixels at top speed. */
