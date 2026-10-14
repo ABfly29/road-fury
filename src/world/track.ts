@@ -100,7 +100,10 @@ class TrackBuilder {
     this.addRoad(returnNum, returnNum, returnNum, 0, -this.lastY / segLen);
     this.segments[this.segments.length - 1].p2.y = 0;
 
-    const period = 2 * config.road.rumbleLength;
+    // Colour bands and lane dashes must both repeat cleanly across the join.
+    const gcd = (a: number, b: number): number => (b === 0 ? a : gcd(b, a % b));
+    const bands = 2 * config.road.rumbleLength;
+    const period = (bands * config.road.dashPeriod) / gcd(bands, config.road.dashPeriod);
     while (this.segments.length % period !== 0) this.addSegment(0, 0);
 
     const segments = this.segments;

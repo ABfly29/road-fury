@@ -2,11 +2,12 @@ import { config } from '../config';
 import { depthForFov, playerZForFov, type CameraState } from '../entities/camera';
 import type { Track } from '../world/track';
 import { SpriteRenderer, type RoadProjection, type RoadSprite } from './spriteRenderer';
+import { Textures } from './textures';
 
 export type { RoadSprite };
 
 const { width: W, height: H } = config.render;
-const { segmentLength, roadWidth, rumbleLength, lanes, rumbleWidth, laneMarkerWidth } = config.road;
+const { segmentLength, roadWidth, rumbleLength, textureSpan, dashPeriod, dashOn } = config.road;
 const { drawDistance } = config.camera;
 const POINTS = drawDistance + 1;
 
@@ -30,6 +31,7 @@ export class RoadRenderer {
     clip: this.clip,
   };
   private readonly spriteRenderer: SpriteRenderer;
+  private readonly textures = new Textures();
 
   constructor(
     private readonly ctx: CanvasRenderingContext2D,
@@ -69,20 +71,25 @@ export class RoadRenderer {
       const z = absIndex * segmentLength - cam.position;
       const scale = depth / z;
       cz[i] = z;
-      sx[i] = Math.round(W / 2 + scale * (x - camX) * (W / 2));
+      sx[i] = W / 2 + scale * (x - camX) * (W / 2);
       sy[i] = Math.round(H / 2 - scale * (seg.p1.y - camY) * (H / 2));
-      sw[i] = Math.round(scale * roadWidth * (W / 2));
+      sw[i] = scale * roadWidth * (W / 2);
       x += dx;
       dx += seg.curve;
     }
   }
 
   private draw(cam: CameraState): void {
-    const { ctx, sx, sy, sw, cz, clip } = this;
+    const { ctx, sx, sy, sw, cz, clip, textures } = this;
     const depth = this.proj.depth;
     const segs = this.track.segments;
     const n = segs.length;
     const baseIndex = Math.floor(cam.position / segmentLength);
+    const { rows: roadRows, width: roadTexW } = config.textures.road;
+    const { rows: grassRows, width: grassTexW } = config.textures.grass;
+
+    // Texture rows are copied 1:1 vertically; crisp, no bleeding between rows.
+    ctx.imageSmoothingEnabled = false;
 
     let maxY: number = H; // top of everything drawn so far; farther road must be above it
 
@@ -108,36 +115,23 @@ export class RoadRenderer {
       }
 
       const seg = segs[(((baseIndex + i) % n) + n) % n];
-      const colors = Math.floor(seg.index / rumbleLength) % 2 === 0 ? config.colors.light : config.colors.dark;
+      const band = Math.floor(seg.index / rumbleLength) % 2; // alternates the grass tone
+      const dash = seg.index % dashPeriod < dashOn ? 1 : 0; // white lane dashes
+      const grass = textures.grassStrip(seg.index)[band];
+      const road = textures.roadStrip(seg.index)[dash];
 
-      ctx.fillStyle = colors.grass;
-      ctx.fillRect(0, y2, W, y1 - y2);
-
-      // Wide rumble first, road on top, so the shared edge has no seam.
-      const r1 = w1 * rumbleWidth;
-      const r2 = w2 * rumbleWidth;
-      this.quad(x1 - w1 - r1, y1, x1 + w1 + r1, y1, x2 + w2 + r2, y2, x2 - w2 - r2, y2, colors.rumble);
-      this.quad(x1 - w1, y1, x1 + w1, y1, x2 + w2, y2, x2 - w2, y2, colors.road);
-
-      if (colors.lane) {
-        const l1 = w1 * laneMarkerWidth;
-        const l2 = w2 * laneMarkerWidth;
-        const laneW1 = (w1 * 2) / lanes;
-        const laneW2 = (w2 * 2) / lanes;
-        let lx1 = x1 - w1;
-        let lx2 = x2 - w2;
-        ctx.fillStyle = colors.lane;
-        for (let lane = 1; lane < lanes; lane++) {
-          lx1 += laneW1;
-          lx2 += laneW2;
-          ctx.beginPath();
-          ctx.moveTo(lx1 - l1 / 2, y1);
-          ctx.lineTo(lx1 + l1 / 2, y1);
-          ctx.lineTo(lx2 + l2 / 2, y2);
-          ctx.lineTo(lx2 - l2 / 2, y2);
-          ctx.closePath();
-          ctx.fill();
-        }
+      // One screen row at a time: terrain across the whole width, then the road strip (asphalt, lines,
+      // dirt shoulder) scaled to this row's width. Width and centre are exactly linear in screen y.
+      const height = y1 - y2;
+      for (let y = y2; y < y1; y++) {
+        const u = (y - y2 + 0.5) / height; // 0 at the far edge of the segment, 1 at the near edge
+        const halfWidth = w2 + (w1 - w2) * u;
+        const centre = x2 + (x1 - x2) * u;
+        ctx.drawImage(grass, 0, Math.min(grassRows - 1, Math.floor(u * grassRows)), grassTexW, 1, 0, y, W, 1);
+        ctx.drawImage(
+          road, 0, Math.min(roadRows - 1, Math.floor(u * roadRows)), roadTexW, 1,
+          centre - textureSpan * halfWidth, y, 2 * textureSpan * halfWidth, 1,
+        );
       }
 
       // Exponential distance fog.
@@ -146,27 +140,11 @@ export class RoadRenderer {
       if (fogAlpha > 0.005) {
         ctx.globalAlpha = fogAlpha;
         ctx.fillStyle = config.fog.color;
-        ctx.fillRect(0, y2, W, y1 - y2);
+        ctx.fillRect(0, y2, W, height);
         ctx.globalAlpha = 1;
       }
 
       maxY = y2;
     }
-  }
-
-  private quad(
-    x1: number, y1: number, x2: number, y2: number,
-    x3: number, y3: number, x4: number, y4: number,
-    color: string,
-  ): void {
-    const { ctx } = this;
-    ctx.fillStyle = color;
-    ctx.beginPath();
-    ctx.moveTo(x1, y1);
-    ctx.lineTo(x2, y2);
-    ctx.lineTo(x3, y3);
-    ctx.lineTo(x4, y4);
-    ctx.closePath();
-    ctx.fill();
   }
 }

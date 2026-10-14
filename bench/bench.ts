@@ -10,9 +10,7 @@ import { createRivals } from '../src/entities/rival';
 import { updateCamera } from '../src/systems/camera';
 import { Background } from '../src/render/background';
 import { BikeRenderer } from '../src/render/bikeRenderer';
-import { drawDebugOverlay } from '../src/render/debugOverlay';
-import { drawHealth, drawSpeed, drawWipeout } from '../src/render/hud';
-import { drawCountdown, drawRaceInfo, drawResults } from '../src/render/raceHud';
+import { drawHud } from '../src/render/hudLayer';
 import { RoadRenderer } from '../src/render/roadRenderer';
 import { SceneBuffer } from '../src/render/screenFx';
 
@@ -54,13 +52,7 @@ function makeScene(ctx: CanvasRenderingContext2D) {
       bg.draw(buffer.ctx, cam.parallax);
       road.render(cam, sprites);
       buffer.present(ctx, player, cam.roll);
-      drawSpeed(ctx, player);
-      drawHealth(ctx, player);
-      drawWipeout(ctx, player);
-      drawRaceInfo(ctx, race, player.z);
-      drawCountdown(ctx, race);
-      drawResults(ctx, race);
-      if (this.debug) drawDebugOverlay(ctx, axes, player, cam);
+      drawHud(ctx, { player, race, camera: cam, debugAxes: this.debug ? axes : undefined });
     },
   };
 }
@@ -88,7 +80,8 @@ function makeScene(ctx: CanvasRenderingContext2D) {
   }
   times.sort((a, b) => a - b);
   const avg = times.reduce((a, b) => a + b, 0) / times.length;
-  var out = `frames=${frames} avg=${avg.toFixed(2)}ms p95=${times[Math.floor(times.length * 0.95)].toFixed(2)}ms max=${times[times.length - 1].toFixed(2)}ms budget=16.67ms`;
+  const over = times.filter((t) => t > 1000 / config.loop.updateHz).length;
+  var out = `frames=${frames} avg=${avg.toFixed(2)}ms p95=${times[Math.floor(times.length * 0.95)].toFixed(2)}ms max=${times[times.length - 1].toFixed(2)}ms over-budget=${over} (${((100 * over) / frames).toFixed(2)}%) budget=16.67ms`;
 }
 
 // Screenshots of specific situations.
@@ -136,7 +129,7 @@ const spots: [string, number, Partial<Player>, Extra?][] = [
 ];
 
 document.body.innerHTML = '';
-document.body.style.cssText = 'margin:0;background:#000;display:grid;grid-template-columns:repeat(3,640px);gap:2px';
+document.body.style.cssText = 'margin:0;background:#000;display:grid;grid-template-columns:repeat(3,960px);gap:2px';
 for (const [, idx, state, extra] of spots) {
   const s = makeScene(mk());
   Object.assign(s.player, { z: idx * segLen + 60, ...state });

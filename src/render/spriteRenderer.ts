@@ -71,10 +71,10 @@ export class SpriteRenderer {
           const t = config.scenery.types[item.type];
           const halfW = sw[i] + (sw[i + 1] - sw[i]) * item.frac;
           const pxPerUnit = halfW / roadWidth;
-          const h = t.height * pxPerUnit;
+          const h = t.height * pxPerUnit * item.scale;
           if (h < config.scenery.minPixelHeight) continue;
 
-          const w = t.width * pxPerUnit;
+          const w = t.width * pxPerUnit * item.scale;
           const x = sx[i] + (sx[i + 1] - sx[i]) * item.frac + item.offset * halfW;
           const y = sy[i] + (sy[i + 1] - sy[i]) * item.frac;
           if (x + w / 2 < 0 || x - w / 2 > W) continue;

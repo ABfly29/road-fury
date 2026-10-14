@@ -1,7 +1,7 @@
 import { config } from '../config';
 import type { RaceState } from '../entities/race';
 
-const { width: W, height: H } = config.render;
+const { width: W, height: H } = config.hud;
 
 /** m:ss.t */
 export function formatTime(seconds: number): string {

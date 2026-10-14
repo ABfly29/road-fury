@@ -1,9 +1,7 @@
 import { Input, ZERO_AXES } from './input';
 import { startLoop } from './loop';
 import { FpsCounter } from '../render/fps';
-import { drawDebugOverlay } from '../render/debugOverlay';
-import { drawHealth, drawSpeed, drawWipeout } from '../render/hud';
-import { drawCountdown, drawRaceInfo, drawResults } from '../render/raceHud';
+import { drawHud } from '../render/hudLayer';
 import { Background } from '../render/background';
 import { BikeRenderer } from '../render/bikeRenderer';
 import { RoadRenderer } from '../render/roadRenderer';
@@ -117,14 +115,6 @@ export class Game {
     this.road.render(camera, this.sprites);
     this.scene.present(ctx, player, camera.roll);
 
-    drawSpeed(ctx, player);
-    drawHealth(ctx, player);
-    drawWipeout(ctx, player);
-    drawRaceInfo(ctx, race, player.z);
-    drawCountdown(ctx, race);
-    drawResults(ctx, race);
-    this.fps.tick(performance.now());
-    this.fps.draw(ctx);
-    if (this.input.debugOverlay) drawDebugOverlay(ctx, this.input, player, camera);
+    drawHud(ctx, { player, race, camera, fps: this.fps, debugAxes: this.input.debugOverlay ? this.input : undefined });
   }
 }

@@ -11,11 +11,16 @@ export const config = {
     maxFrameTime: 0.25,
   },
   render: {
-    width: 640,
-    height: 400,
+    width: 960,
+    height: 540,
     backgroundColor: '#0a0a14',
+    /** The HUD is laid out in a 640x360 space (config.hud.width/height) and scaled up by this to fill the canvas. */
+    hudScale: 1.5,
   },
   hud: {
+    /** Logical size of the HUD layout space (render size / hudScale). */
+    width: 640,
+    height: 360,
     fpsFont: '12px monospace',
     fpsColor: '#0f0',
     fpsX: 8,
@@ -71,20 +76,21 @@ export const config = {
     segmentLength: SEGMENT_LENGTH,
     /** Half-width of the road: it spans -roadWidth..+roadWidth. */
     roadWidth: 2000,
-    /** Segments per rumble/dash band; colors alternate every band. */
+    /** Segments per band: lane dashes and the grass tone alternate every band. */
     rumbleLength: 3,
     lanes: 4,
-    /** Rumble strip width as a fraction of the road half-width. */
-    rumbleWidth: 1 / 8,
-    /** Lane marking width as a fraction of the road half-width. */
-    laneMarkerWidth: 1 / 32,
+    /** White lane dashes: on for dashOn segments out of every dashPeriod (must divide the track length). */
+    dashPeriod: 12,
+    dashOn: 4,
+    /** The road texture strip covers this many road half-widths either side of the centre (road + dirt shoulder). */
+    textureSpan: 1.3,
   },
 
   camera: {
     /** Horizontal field of view in degrees. */
     fov: 100,
-    /** Camera height above the road surface (world units). */
-    height: 1000,
+    /** Camera height above the road surface (world units). Low, so the road fills the lower half of the screen. */
+    height: 700,
     /** Number of segments drawn ahead of the camera. */
     drawDistance: 300,
   },
@@ -168,13 +174,13 @@ export const config = {
 
   bike: {
     /** Handlebar span in world units; sets the sprite size at the player's distance. */
-    width: 230,
+    width: 170,
     /** Pixels the bike sits above the bottom edge of the canvas (keeps tyre, shadow and a leaning bike fully on screen). */
-    bottomMargin: 30,
+    bottomMargin: 45,
     /** Lean angle at full lean (radians). */
     maxLeanAngle: 0.4,
     /** Bounce height in pixels at top speed. */
-    bounceAmplitude: 2,
+    bounceAmplitude: 3,
     /** Distance travelled per bounce cycle (world units). */
     bounceWavelength: 900,
     colors: {
@@ -204,9 +210,9 @@ export const config = {
     /** Extra gap between minOffset and a sprite's inner edge. */
     edgeMargin: 0.03,
     /** Sprites smaller than this many screen pixels tall are skipped. */
-    minPixelHeight: 3,
+    minPixelHeight: 4,
     /** Resolution of the pre-rendered art (pixels per world unit). */
-    artPxPerUnit: 0.15,
+    artPxPerUnit: 0.22,
     postSpacing: 20,
     postOffset: 1.25,
     chevronSpacing: 6,
@@ -236,6 +242,38 @@ export const config = {
       post: { width: 90, height: 520, collisionWidth: 0, spread: 0 },
       billboard: { width: 1500, height: 1800, collisionWidth: 0.7, spread: 0.8 },
       chevron: { width: 700, height: 1100, collisionWidth: 0.08, spread: 0 },
+      // Decoration only: you brush through bushes, scrub and fence posts.
+      bush: { width: 520, height: 340, collisionWidth: 0, spread: 2.5 },
+      scrub: { width: 380, height: 230, collisionWidth: 0, spread: 2.5 },
+      fence: { width: 120, height: 380, collisionWidth: 0, spread: 0 },
+    },
+    /**
+     * Visual-only dressing, drawn from its own seeded stream so the layout of everything you can hit is
+     * exactly what it was before. Offsets are in road half-widths.
+     */
+    decor: {
+      seed: 777,
+      /** Chance per side per segment of a bush or scrub clump (scrubShare of them are scrub). */
+      bushDensity: 0.5,
+      scrubShare: 0.4,
+      bushOffsetSpread: 2.6,
+      /** Extra trees (and palms in beach zones) further out than you can ride, for depth. */
+      farTreeDensity: 0.3,
+      farTreeOffsetMin: 2.7,
+      farTreeOffsetSpread: 5,
+      /** Wooden fence posts along stretches: every fenceSpacing segments, for fenceLength out of every fencePeriod. */
+      fenceSpacing: 4,
+      fenceLength: 140,
+      fencePeriod: 380,
+      fenceOffset: 1.5,
+      /**
+     * Size variation (visual scale) for new decor, and for the trees, palms and rocks that are already there
+     * (those are also capped so their inner edge never comes closer than minOffset).
+     */
+      scaleMin: 0.7,
+      scaleMax: 1.45,
+      existingScaleMin: 0.75,
+      existingScaleMax: 1.35,
     },
     billboards: [
       { text: 'ROAD FURY', back: '#d62828', fore: '#ffffff' },
@@ -263,7 +301,7 @@ export const config = {
     invincibleTime: 3,
     invincibleFlashHz: 8,
     /** Camera shake in canvas pixels at impact; decays to 0 over the crash. */
-    shakeAmplitude: 7,
+    shakeAmplitude: 10,
     shakeFrequency: 55,
     /** Bike tumble: full turns before it settles on its side, and the time it takes (s). */
     spinTurns: 2.5,
@@ -364,9 +402,58 @@ export const config = {
     color: '#c9d8e6',
   },
 
-  colors: {
-    light: { road: '#6b6b6b', grass: '#10aa10', rumble: '#cc2222', lane: '#cccccc' },
-    dark: { road: '#696969', grass: '#009a00', rumble: '#eeeeee', lane: '' },
+  /**
+   * Pre-generated texture strips. The road and the terrain are drawn one screen row at a time from a strip
+   * (a few variants, picked per segment), so detail costs one drawImage per row instead of many shapes.
+   * Colours are [r, g, b]. Road x positions are in road half-widths (-1..1 = edge to edge).
+   */
+  textures: {
+    seed: 1994,
+    road: { width: 1024, rows: 64, variants: 8 },
+    grass: { width: 512, rows: 64, variants: 6 },
+    asphalt: {
+      base: [94, 94, 98],
+      /** Per-pixel grain and the larger soft blotches (+- RGB levels). */
+      noise: 9,
+      blotch: 6,
+      /** Tyre-wear: darkening in the wheel tracks of each lane (offset from lane centre, width, strength). */
+      wheelOffset: 0.068,
+      wheelWidth: 0.07,
+      wear: 22,
+      /** Repair patches, cracks and oil stains per strip. */
+      patches: 3,
+      cracks: 3,
+      stains: 2,
+    },
+    lines: {
+      edgeX: 0.962,
+      edgeWidth: 0.026,
+      /** Each of the two yellow centre lines sits this far from the centre. */
+      centerX: 0.026,
+      centerWidth: 0.015,
+      laneX: 0.5,
+      laneWidth: 0.022,
+      white: [236, 236, 230],
+      yellow: [234, 186, 38],
+      /** Chance a paint pixel is worn away. */
+      worn: 0.16,
+    },
+    shoulder: {
+      /** Dirt/gravel from just outside the edge line out to a ragged outer edge. */
+      inner: 0.99,
+      outer: 1.2,
+      ragged: 0.06,
+      base: [140, 108, 72],
+      noise: 16,
+      /** Chance of a pebble pixel. */
+      pebbles: 0.07,
+    },
+    grassTones: {
+      light: [98, 162, 64],
+      dark: [70, 128, 48],
+      noise: 12,
+      blotch: 22,
+    },
   },
 
   background: {
@@ -374,8 +461,8 @@ export const config = {
     skyHorizon: '#c9d8e6',
     /** Parallax mountain layers, far to near. speed = layer widths/s per unit curve at top speed. */
     layers: [
-      { color: '#8da3bf', height: 110, points: 9, minPeak: 0.35, maxPeak: 1, speed: 0.015, seed: 11 },
-      { color: '#5d7896', height: 70, points: 13, minPeak: 0.3, maxPeak: 1, speed: 0.03, seed: 29 },
+      { color: '#97b3a6', height: 165, points: 9, minPeak: 0.35, maxPeak: 1, speed: 0.015, seed: 11 },
+      { color: '#5f8c63', height: 105, points: 13, minPeak: 0.3, maxPeak: 1, speed: 0.03, seed: 29 },
     ],
     /** Layer canvas width as a multiple of the screen width (must be >= 1). */
     layerWidthScale: 2,

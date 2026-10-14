@@ -5,8 +5,8 @@ import type { Player } from '../entities/player';
 export function drawSpeed(ctx: CanvasRenderingContext2D, player: Player): void {
   const h = config.hud;
   const mph = Math.round((player.speed / config.physics.maxSpeed) * h.topSpeedMph);
-  const x = config.render.width - h.speedRight;
-  const y = config.render.height - h.speedBottom;
+  const x = config.hud.width - h.speedRight;
+  const y = config.hud.height - h.speedBottom;
 
   ctx.font = h.speedFont;
   ctx.textAlign = 'right';
@@ -22,7 +22,7 @@ export function drawSpeed(ctx: CanvasRenderingContext2D, player: Player): void {
 export function drawHealth(ctx: CanvasRenderingContext2D, player: Player): void {
   const h = config.hud;
   const fraction = Math.min(1, Math.max(0, player.health / config.crash.maxHealth));
-  const x = config.render.width - h.healthRight - h.healthWidth;
+  const x = config.hud.width - h.healthRight - h.healthWidth;
   const y = h.healthTop;
 
   ctx.fillStyle = h.healthBack;
@@ -50,7 +50,7 @@ export function drawWipeout(ctx: CanvasRenderingContext2D, player: Player): void
   const fadeOut = Math.min(1, player.crashTimer / 0.4);
 
   ctx.save();
-  ctx.translate(config.render.width / 2, config.render.height * h.wipeoutY);
+  ctx.translate(config.hud.width / 2, config.hud.height * h.wipeoutY);
   ctx.scale(pop, pop);
   ctx.globalAlpha = fadeOut;
   ctx.font = h.wipeoutFont;
