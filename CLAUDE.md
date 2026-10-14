@@ -2,10 +2,13 @@
 
 Road Rash–style pseudo-3D motorbike racer on HTML5 Canvas. Vite + TypeScript. Deployed to GitHub Pages at `/road-fury/`.
 
+Live: https://abfly29.github.io/road-fury/
+
 ## Commands
 - `npm run dev` – dev server
 - `npm run build` – typecheck + production build
 - `npm run preview` – serve the built `dist/` at `/road-fury/`
+- Never run `npm ci` while a dev/preview server is up: on Windows the server locks native binaries in `node_modules` and `npm ci` fails with EPERM. Stop the server first.
 
 ## Layout (`src/`)
 `core/` loop, input, game wiring · `world/` road/track data · `entities/` bike, rivals, traffic · `systems/` per-tick logic · `render/` drawing · `audio/` sound · `config.ts` tuning
