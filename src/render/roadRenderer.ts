@@ -1,5 +1,5 @@
 import { config } from '../config';
-import { cameraDepth, playerZ, type CameraState } from '../entities/camera';
+import { depthForFov, playerZForFov, type CameraState } from '../entities/camera';
 import type { Track } from '../world/track';
 import { SpriteRenderer, type RoadProjection, type RoadSprite } from './spriteRenderer';
 
@@ -22,6 +22,7 @@ export class RoadRenderer {
   private readonly proj: RoadProjection = {
     baseIndex: 0,
     camY: 0,
+    depth: 0,
     sx: this.sx,
     sy: this.sy,
     sw: this.sw,
@@ -51,9 +52,11 @@ export class RoadRenderer {
     const base = segs[((baseIndex % n) + n) % n];
     const percent = (cam.position - baseIndex * segmentLength) / segmentLength;
     // The camera rides at a fixed height above the road under the player, so the bike stays put on hills.
-    const camY = config.camera.height + this.track.heightAt(cam.position + playerZ);
+    const depth = depthForFov(cam.fov);
+    const camY = config.camera.height + this.track.heightAt(cam.position + playerZForFov(cam.fov));
     this.proj.baseIndex = baseIndex;
     this.proj.camY = camY;
+    this.proj.depth = depth;
     const camX = cam.x * roadWidth;
 
     // Accumulated curve offset (x) and its rate of change (dx).
@@ -64,7 +67,7 @@ export class RoadRenderer {
       const absIndex = baseIndex + i;
       const seg = segs[((absIndex % n) + n) % n];
       const z = absIndex * segmentLength - cam.position;
-      const scale = cameraDepth / z;
+      const scale = depth / z;
       cz[i] = z;
       sx[i] = Math.round(W / 2 + scale * (x - camX) * (W / 2));
       sy[i] = Math.round(H / 2 - scale * (seg.p1.y - camY) * (H / 2));
@@ -76,6 +79,7 @@ export class RoadRenderer {
 
   private draw(cam: CameraState): void {
     const { ctx, sx, sy, sw, cz, clip } = this;
+    const depth = this.proj.depth;
     const segs = this.track.segments;
     const n = segs.length;
     const baseIndex = Math.floor(cam.position / segmentLength);
@@ -86,7 +90,7 @@ export class RoadRenderer {
       clip[i] = maxY;
 
       // Behind the camera, facing away (past a crest) or hidden behind a nearer hill.
-      if (cz[i] <= cameraDepth || sy[i + 1] >= sy[i] || sy[i + 1] >= maxY) continue;
+      if (cz[i] <= depth || sy[i + 1] >= sy[i] || sy[i + 1] >= maxY) continue;
 
       let x1 = sx[i];
       let w1 = sw[i];

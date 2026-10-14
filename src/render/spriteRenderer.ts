@@ -1,5 +1,4 @@
 import { config } from '../config';
-import { cameraDepth } from '../entities/camera';
 import type { Track } from '../world/track';
 import { Art } from './art';
 
@@ -19,6 +18,8 @@ export interface RoadSprite {
 export interface RoadProjection {
   baseIndex: number;
   camY: number;
+  /** Distance from the eye to the projection plane this frame (depends on the FOV). */
+  depth: number;
   sx: Float64Array;
   sy: Float64Array;
   sw: Float64Array;
@@ -41,7 +42,7 @@ export class SpriteRenderer {
   draw(cam: { position: number }, proj: RoadProjection, roadSprites: readonly RoadSprite[]): void {
     const { ctx, track } = this;
     const segs = track.segments;
-    const { baseIndex, sx, sy, sw, cz, clip } = proj;
+    const { baseIndex, depth, sx, sy, sw, cz, clip } = proj;
 
     // Bucket road sprites by segment so they are drawn at the right depth among the scenery.
     const placed = roadSprites
@@ -53,7 +54,7 @@ export class SpriteRenderer {
     ctx.imageSmoothingEnabled = false;
 
     for (let i = drawDistance - 1; i >= 0; i--) {
-      const behind = cz[i] <= cameraDepth;
+      const behind = cz[i] <= depth;
 
       if (!behind) {
         const seg = segs[mod(baseIndex + i, segs.length)];
@@ -91,8 +92,8 @@ export class SpriteRenderer {
 
   private drawRoadSprite(cam: { position: number }, proj: RoadProjection, sprite: RoadSprite, clipY: number): void {
     const z = sprite.position - cam.position;
-    if (z <= cameraDepth) return;
-    const scale = cameraDepth / z;
+    if (z <= proj.depth) return;
+    const scale = proj.depth / z;
     const y = H / 2 - scale * (this.track.heightAt(sprite.position) - proj.camY) * (H / 2);
     // The camera follows the player's x, so the bike stays centred.
     this.drawClipped(clipY, () => sprite.draw(this.ctx, W / 2, y, scale * (W / 2)));

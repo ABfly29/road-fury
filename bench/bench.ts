@@ -2,13 +2,16 @@
 // Run: npm run dev, then open /road-fury/bench/
 import { config } from '../src/config';
 import { createSampleTrack } from '../src/world/track';
+import { ZERO_AXES, type InputAxes } from '../src/core/input';
 import { createCamera } from '../src/entities/camera';
 import { createPlayer, type Player } from '../src/entities/player';
 import { updateCamera } from '../src/systems/camera';
 import { Background } from '../src/render/background';
 import { BikeRenderer } from '../src/render/bikeRenderer';
+import { drawDebugOverlay } from '../src/render/debugOverlay';
 import { drawHealth, drawSpeed, drawWipeout } from '../src/render/hud';
 import { RoadRenderer } from '../src/render/roadRenderer';
+import { SceneBuffer } from '../src/render/screenFx';
 
 const track = createSampleTrack();
 const segLen = config.road.segmentLength;
@@ -24,19 +27,27 @@ const mk = () => {
 function makeScene(ctx: CanvasRenderingContext2D) {
   const player = createPlayer();
   const cam = createCamera();
-  const bg = new Background(ctx);
-  const road = new RoadRenderer(ctx, track);
+  const buffer = new SceneBuffer();
+  const bg = new Background(buffer.ctx);
+  const road = new RoadRenderer(buffer.ctx, track);
   const bike = new BikeRenderer(player);
+  const axes: InputAxes = { ...ZERO_AXES };
   return {
     player,
     cam,
+    axes,
+    debug: false,
     frame() {
-      updateCamera(cam, player, track, 0);
-      bg.draw(ctx, cam.parallax);
+      updateCamera(cam, player, track, axes, 0);
+      ctx.fillStyle = config.render.backgroundColor;
+      ctx.fillRect(0, 0, config.render.width, config.render.height);
+      bg.draw(buffer.ctx, cam.parallax);
       road.render(cam, [bike]);
+      buffer.present(ctx, player, cam.roll);
       drawSpeed(ctx, player);
       drawHealth(ctx, player);
       drawWipeout(ctx, player);
+      if (this.debug) drawDebugOverlay(ctx, axes, player, cam);
     },
   };
 }
@@ -73,35 +84,38 @@ const firstOf = (type: string, minOff = 0, maxOff = 9) => {
 };
 const palm = firstOf('palm', 1.4, 1.8);
 const palmZ = (palm.k + palm.item.frac) * segLen;
-const board = firstOf('billboard');
 const fast = config.physics.maxSpeed * 0.8;
 const crashAt = (e: number): Partial<Player> => ({
   z: palmZ, x: palm.item.offset, speed: 0, crashTimer: config.crash.duration - e, crashSpeed: 0.8, crashDir: palm.item.offset > 0 ? -1 : 1,
   health: 80,
 });
-const spots: [string, number, Partial<Player>][] = [
-  ['beach zone', 40, { speed: fast }],
-  ['forest, hard curve + chevrons', 500, { speed: fast, lean: 0.5 }],
-  ['rocky zone', 800, { speed: fast }],
-  ['billboard', board.k - 14, { speed: fast }],
-  ['approaching a palm', palm.k - 6, { speed: fast, x: palm.item.offset }],
-  ['crash e=0.10s', 0, crashAt(0.1)],
-  ['crash e=0.40s', 0, crashAt(0.4)],
-  ['crash e=0.90s', 0, crashAt(0.9)],
-  ['crash e=1.50s', 0, crashAt(1.5)],
-  ['crash e=2.10s', 0, crashAt(2.1)],
-  ['respawn, invincible (flash on)', palm.k - 6, { speed: 0, invincibleTimer: 2.99, health: 80 }],
+type Extra = { axes?: Partial<InputAxes>; debug?: boolean; fovKick?: number };
+const spots: [string, number, Partial<Player>, Extra?][] = [
+  ['upright, overlay on', 40, { speed: fast }, { axes: { throttle: 1 }, debug: true }],
+  ['lean right + steer right', 40, { speed: fast, lean: 1 }, { axes: { steer: 1, throttle: 1 }, debug: true }],
+  ['lean left + steer left, braking', 40, { speed: fast, lean: -1 }, { axes: { steer: -1, brake: 0.6 }, debug: true }],
+  ['lean overshoot (1.2) right', 500, { speed: fast, lean: 1.2 }, { axes: { steer: 0.4, throttle: 1 }, debug: true }],
+  ['pulling away: FOV kick on', 40, { speed: config.physics.maxSpeed * 0.15 }, { axes: { throttle: 1 }, fovKick: config.input.fovKick, debug: true }],
+  ['same spot, no kick', 40, { speed: config.physics.maxSpeed * 0.15 }, { axes: { throttle: 1 }, debug: true }],
+  ['crash e=0.40s (shake + roll off)', 0, crashAt(0.4)],
   ['crest ahead', crest - 22, { speed: fast }],
-  ['just below the crest', crest - 8, { speed: fast }],
-  ['over the crest: trees poke up behind it', crest + 2, { speed: fast }],
+  ['approaching a palm', palm.k - 6, { speed: fast, x: palm.item.offset }],
 ];
 
 document.body.innerHTML = '';
 document.body.style.cssText = 'margin:0;background:#000;display:grid;grid-template-columns:repeat(3,640px);gap:2px';
-for (const [, idx, state] of spots) {
+for (const [, idx, state, extra] of spots) {
   const s = makeScene(mk());
   Object.assign(s.player, { z: idx * segLen + 60, ...state });
+  if (extra?.axes) Object.assign(s.axes, extra.axes);
+  s.debug = !!extra?.debug;
+  s.cam.fovKick = extra?.fovKick ?? 0; // frame() recomputes it, so also pin the target below
   s.frame();
+  if (extra?.fovKick) {
+    // frame() eases fovKick from 0; run a few steps to show the steady kick
+    for (let i = 0; i < 120; i++) updateCamera(s.cam, s.player, track, s.axes, 1 / 60);
+    s.frame();
+  }
 }
 const pre = document.createElement('pre');
 pre.id = 'result';

@@ -99,10 +99,57 @@ export const config = {
     leanSteer: 0.7,
     /** Lean target per unit of curve, scaled by speed (curve 6 at top speed = 0.9). */
     leanCurve: 0.15,
-    /** How quickly lean follows its target (1/s). */
-    leanResponse: 8,
     /** Speed fraction at which lean reaches full strength (no lean when stopped). */
     leanSpeedRamp: 0.5,
+  },
+
+  /** Analog controls: smoothed axes, steering falloff, lean spring and camera response. */
+  input: {
+    /** Steer axis rise toward +-1 while a key is held (1/s). 4 = full in 0.25 s. */
+    steerRise: 4,
+    /** Steer axis return to 0 after release (1/s). 6 = 0.17 s. */
+    steerFall: 6,
+    /** Rate while crossing zero toward the opposite direction (1/s): faster than steerRise. */
+    steerCross: 10,
+    /** Throttle axis ramp in / out (1/s). 5 = full in 0.2 s. */
+    throttleRise: 5,
+    throttleFall: 8,
+    /** Brake axis ramp in / out (1/s). */
+    brakeRise: 5,
+    brakeFall: 10,
+    /** Steering effectiveness lost between standstill and top speed (0.35 = 35% weaker at top speed). */
+    steerSpeedLoss: 0.35,
+
+    /** Lean follows its target through a spring-damper. Natural frequency (rad/s) and damping ratio (<1 overshoots). */
+    leanFrequency: 12,
+    leanDamping: 0.6,
+    /** Hard limit on lean, including overshoot (1 = the target's full lean). */
+    leanMax: 1.3,
+
+    /** Camera roll at full lean (degrees). */
+    rollMaxDeg: 1.5,
+    /** Camera x shift in road half-widths per unit of steer / lean (scaled by speed). */
+    camXSteer: 0.06,
+    camXLean: 0.04,
+    /** Extra FOV (degrees) while accelerating hard, and how quickly it follows (1/s). */
+    fovKick: 4,
+    fovKickResponse: 3,
+
+    debug: {
+      x: 8,
+      y: 26,
+      width: 150,
+      barHeight: 9,
+      gap: 14,
+      font: '10px monospace',
+      back: 'rgba(0, 0, 0, 0.6)',
+      border: '#ffffff',
+      steer: '#4db8ff',
+      throttle: '#3ddc4a',
+      brake: '#ff5a4d',
+      lean: '#ffd23f',
+      text: '#ffffff',
+    },
   },
 
   bike: {

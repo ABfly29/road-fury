@@ -7,8 +7,10 @@ export interface Player {
   x: number;
   /** World units per second. */
   speed: number;
-  /** Lean, -1 (full left) to +1 (full right). Visual only; derived from steering and curves. */
+  /** Lean, about -1 (left) to +1 (right); a spring-damper follows steering and curves, so it can overshoot a little. */
   lean: number;
+  /** Rate of change of lean (spring-damper velocity). */
+  leanVel: number;
   /** Health, 0..config.crash.maxHealth. Each crash costs config.crash.damage. */
   health: number;
   /** Seconds left in the current wipeout; 0 when not crashed. Controls are locked while > 0. */
@@ -27,6 +29,7 @@ export function createPlayer(): Player {
     x: 0,
     speed: 0,
     lean: 0,
+    leanVel: 0,
     health: config.crash.maxHealth,
     crashTimer: 0,
     crashSpeed: 0,

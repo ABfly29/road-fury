@@ -45,6 +45,7 @@ function startCrash(p: Player, hit: Hit): void {
   p.health = Math.max(0, p.health - config.crash.damage);
   p.speed = 0;
   p.lean = 0;
+  p.leanVel = 0;
   p.z = hit.z;
 }
 
