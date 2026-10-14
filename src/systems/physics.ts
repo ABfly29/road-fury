@@ -8,6 +8,7 @@ const clamp = (v: number, lo: number, hi: number) => Math.min(Math.max(v, lo), h
 /** Advance the player by one fixed step. All tuning comes from config.physics. */
 export function updatePlayer(p: Player, input: Pick<Input, 'isDown'>, track: Track, dt: number): void {
   const c = config.physics;
+  if (p.crashTimer > 0) return; // controls are locked during a wipeout
   const offRoad = Math.abs(p.x) > 1;
   const cap = offRoad ? c.maxSpeed * c.offRoadLimit : c.maxSpeed;
 

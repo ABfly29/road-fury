@@ -1,4 +1,5 @@
 import { config } from '../config';
+import { populateScenery, type SceneryItem } from './scenery';
 
 export interface TrackPoint {
   y: number;
@@ -11,6 +12,8 @@ export interface Segment {
   p1: TrackPoint;
   p2: TrackPoint;
   curve: number;
+  /** Roadside objects on this segment (filled by populateScenery). */
+  sprites: SceneryItem[];
 }
 
 export interface Track {
@@ -42,6 +45,7 @@ class TrackBuilder {
       p1: { y: this.lastY, z: index * this.segLen },
       p2: { y, z: (index + 1) * this.segLen },
       curve,
+      sprites: [],
     });
   }
 
@@ -141,5 +145,7 @@ export function createSampleTrack(): Track {
   t.addRoad(25, 70, 25, C.hard, 0);
   t.hill(15, H.medium);
 
-  return t.close();
+  const track = t.close();
+  populateScenery(track);
+  return track;
 }

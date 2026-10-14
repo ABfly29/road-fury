@@ -37,3 +37,4 @@ Handling values in `config.ts` (`physics`) as of phase-2. Later phases must not 
 | `maxX` | 2 | Hard clamp on x |
 
 Curve strengths (`track.curve` easy/medium/hard = 2/4/6) and the hard-curve lengths are part of this feel: at full speed the hold limits are 160 / 133 / 89 mph.
+7. **Scenery stays off the road and is seeded.** `world/scenery.ts` places every item with `|offset| - width/2 >= minOffset (1.2)` using a seeded PRNG, so the roadside is identical every run. Scenery art lives only in `render/art.ts` (pre-rendered canvas shapes; swap in sprite sheets there). Collision widths are per type in `config.scenery.types`; crash/respawn numbers are in `config.crash`.

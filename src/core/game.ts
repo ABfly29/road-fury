@@ -1,13 +1,15 @@
 import { Input } from './input';
 import { startLoop } from './loop';
 import { FpsCounter } from '../render/fps';
-import { drawSpeed } from '../render/hud';
+import { drawHealth, drawSpeed, drawWipeout } from '../render/hud';
 import { Background } from '../render/background';
 import { BikeRenderer } from '../render/bikeRenderer';
 import { RoadRenderer } from '../render/roadRenderer';
 import { createCamera } from '../entities/camera';
 import { createPlayer } from '../entities/player';
 import { updateCamera } from '../systems/camera';
+import { findCollision, resolveCollision } from '../systems/collision';
+import { updateCrash } from '../systems/crash';
 import { updatePlayer } from '../systems/physics';
 import { createSampleTrack } from '../world/track';
 import { config } from '../config';
@@ -43,15 +45,37 @@ export class Game {
 
   /** Simulation only: no drawing here. */
   private update(dt: number): void {
+    const prevZ = this.player.z;
     updatePlayer(this.player, this.input, this.track, dt);
+    const hit = findCollision(this.player, prevZ, this.track);
+    if (hit) resolveCollision(this.player, hit);
+    updateCrash(this.player, dt);
     updateCamera(this.camera, this.player, this.track, dt);
   }
 
   /** Drawing only: no state mutation of the simulation here. */
   private render(): void {
-    this.background.draw(this.ctx, this.camera.parallax);
+    const { ctx, player } = this;
+    // Camera shake moves the whole scene (not the HUD); the strip it uncovers stays dark.
+    ctx.fillStyle = config.render.backgroundColor;
+    ctx.fillRect(0, 0, config.render.width, config.render.height);
+    ctx.save();
+    if (player.crashTimer > 0) {
+      const c = config.crash;
+      const elapsed = c.duration - player.crashTimer;
+      const amp = c.shakeAmplitude * (1 - elapsed / c.duration) ** 2;
+      ctx.translate(
+        Math.round(amp * Math.sin(elapsed * c.shakeFrequency)),
+        Math.round(amp * Math.sin(elapsed * c.shakeFrequency * 1.3 + 1)),
+      );
+    }
+    this.background.draw(ctx, this.camera.parallax);
     this.road.render(this.camera, [this.bike]);
-    drawSpeed(this.ctx, this.player);
+    ctx.restore();
+
+    drawSpeed(ctx, player);
+    drawHealth(ctx, player);
+    drawWipeout(ctx, player);
     this.fps.tick(performance.now());
     this.fps.draw(this.ctx);
   }

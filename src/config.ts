@@ -29,6 +29,27 @@ export const config = {
     speedShadow: '#000000',
     speedRight: 16,
     speedBottom: 14,
+    healthWidth: 120,
+    healthHeight: 10,
+    healthRight: 16,
+    healthTop: 24,
+    healthBack: 'rgba(0, 0, 0, 0.55)',
+    healthBorder: '#ffffff',
+    healthGood: '#3ddc4a',
+    healthWarn: '#ffd23f',
+    healthLow: '#ff3b30',
+    /** Health fractions below which the bar turns yellow / red. */
+    healthWarnBelow: 0.5,
+    healthLowBelow: 0.25,
+    labelFont: 'bold 10px monospace',
+    wipeoutText: 'WIPEOUT!',
+    wipeoutFont: 'bold 56px monospace',
+    wipeoutColor: '#ff2a2a',
+    wipeoutOutline: '#000000',
+    /** Wipeout text is at this fraction of the canvas height. */
+    wipeoutY: 0.32,
+    /** Seconds for the wipeout text to pop in. */
+    wipeoutPop: 0.25,
   },
 
   road: {
@@ -112,6 +133,90 @@ export const config = {
       helmetStripe: '#d22222',
       shadow: 'rgba(0, 0, 0, 0.35)',
     },
+  },
+
+  scenery: {
+    /** Seed for the layout; same seed = same roadside every run. */
+    seed: 20241014,
+    /** Nothing is placed closer to the road center than this (road half-widths); sprite edges included. */
+    minOffset: 1.2,
+    /** Extra gap between minOffset and a sprite's inner edge. */
+    edgeMargin: 0.03,
+    /** Sprites smaller than this many screen pixels tall are skipped. */
+    minPixelHeight: 3,
+    /** Resolution of the pre-rendered art (pixels per world unit). */
+    artPxPerUnit: 0.15,
+    postSpacing: 20,
+    postOffset: 1.25,
+    chevronSpacing: 6,
+    /** Chevrons appear on segments whose |curve| is at least this. */
+    chevronMinCurve: 4.5,
+    chevronOffset: 1.45,
+    /**
+     * Zones as fractions of the lap. density = chance per side per segment of placing that type.
+     * (At most one random item per side per segment.)
+     */
+    zones: [
+      { name: 'beach', from: 0, to: 0.2, density: { palm: 0.16, tree: 0.01, rock: 0.015, billboard: 0.012 } },
+      { name: 'forest', from: 0.2, to: 0.45, density: { palm: 0.01, tree: 0.22, rock: 0.03, billboard: 0.008 } },
+      { name: 'rocky', from: 0.45, to: 0.65, density: { palm: 0.02, tree: 0.05, rock: 0.14, billboard: 0.01 } },
+      { name: 'beach', from: 0.65, to: 0.85, density: { palm: 0.18, tree: 0.02, rock: 0.02, billboard: 0.012 } },
+      { name: 'forest', from: 0.85, to: 1.01, density: { palm: 0.02, tree: 0.18, rock: 0.02, billboard: 0.01 } },
+    ],
+    /**
+     * Per type: size in world units, collisionWidth in road half-widths (0 = harmless),
+     * spread = how far beyond the minimum offset it can be placed.
+     */
+    types: {
+      palm: { width: 900, height: 2200, collisionWidth: 0.14, spread: 2.6 },
+      tree: { width: 1100, height: 1700, collisionWidth: 0.22, spread: 3.2 },
+      rock: { width: 600, height: 380, collisionWidth: 0.26, spread: 2.2 },
+      // Delineator posts break away harmlessly.
+      post: { width: 90, height: 520, collisionWidth: 0, spread: 0 },
+      billboard: { width: 1500, height: 1800, collisionWidth: 0.7, spread: 0.8 },
+      chevron: { width: 700, height: 1100, collisionWidth: 0.08, spread: 0 },
+    },
+    billboards: [
+      { text: 'ROAD FURY', back: '#d62828', fore: '#ffffff' },
+      { text: 'NITRO', back: '#1d4ed8', fore: '#ffd60a' },
+      { text: 'FUEL UP', back: '#0f766e', fore: '#ffffff' },
+    ],
+  },
+
+  collision: {
+    /** Bike width in road half-widths. */
+    bikeWidth: 0.12,
+    /** Hits above this fraction of top speed crash the bike; at or below it the bike just stops. */
+    crashSpeedFraction: 0.15,
+    /** After a low-speed stop the bike is nudged this far (half-widths) clear of the object. */
+    nudge: 0.02,
+  },
+
+  crash: {
+    /** Seconds from impact to respawn. */
+    duration: 2.4,
+    maxHealth: 100,
+    damage: 20,
+    /** Respawn position in road half-widths (0 = centre). */
+    respawnX: 0,
+    invincibleTime: 3,
+    invincibleFlashHz: 8,
+    /** Camera shake in canvas pixels at impact; decays to 0 over the crash. */
+    shakeAmplitude: 7,
+    shakeFrequency: 55,
+    /** Bike tumble: full turns before it settles on its side, and the time it takes (s). */
+    spinTurns: 2.5,
+    spinTime: 1.5,
+    /** Bike hop height and slide (local bike units) scaled by impact speed. */
+    hopHeight: 55,
+    slideDistance: 60,
+    /** Rider launch (local bike units per second) and gravity, scaled by impact speed. */
+    riderVx: 160,
+    riderVy: 430,
+    riderGravity: 700,
+    riderSpin: 7,
+    /** Dust cloud lifetime (s). */
+    dustTime: 1.2,
   },
 
   fog: {
