@@ -18,8 +18,10 @@ export interface Track {
   segmentLength: number;
   /** Loop length in world units. Positions are total distance; wrap with this only to look up data. */
   length: number;
-  /** Segment under a position given as total distance travelled (>= 0). */
+  /** Segment under a position given as total distance travelled (wraps; negative positions are fine). */
   segmentAt(position: number): Segment;
+  /** Road surface height at a position, interpolated within its segment. */
+  heightAt(position: number): number;
 }
 
 const easeIn = (a: number, b: number, p: number) => a + (b - a) * p * p;
@@ -103,7 +105,13 @@ class TrackBuilder {
       segmentLength: segLen,
       length: segments.length * segLen,
       segmentAt(position) {
-        return segments[Math.floor(position / segLen) % segments.length];
+        const n = segments.length;
+        return segments[((Math.floor(position / segLen) % n) + n) % n];
+      },
+      heightAt(position) {
+        const seg = this.segmentAt(position);
+        const percent = (position - Math.floor(position / segLen) * segLen) / segLen;
+        return seg.p1.y + (seg.p2.y - seg.p1.y) * percent;
       },
     };
   }
@@ -118,19 +126,19 @@ export function createSampleTrack(): Track {
   t.curve(25, C.easy);
   t.straight(15);
   t.rollingHills(15, H.low);
-  t.curve(30, -C.hard);
+  t.addRoad(25, 70, 25, -C.hard, 0);
   // S-bend
   t.curve(20, C.easy);
   t.curve(20, -C.medium);
   t.curve(20, C.medium);
   t.curve(20, -C.easy);
-  t.straight(39);
+  t.straight(27);
   // The one big hill
   t.hill(L.medium - 10, H.high);
   t.hill(L.medium - 10, -H.high);
   t.curve(30, -C.medium, H.low);
   t.straight(20);
-  t.curve(30, C.hard);
+  t.addRoad(25, 70, 25, C.hard, 0);
   t.hill(15, H.medium);
 
   return t.close();
