@@ -62,6 +62,8 @@ export class Input implements InputAxes {
   /** F3 toggles the axis debug overlay. */
   debugOverlay = false;
 
+  private confirm = false;
+
   private down = new Set<Action>();
 
   constructor(target: Window = window) {
@@ -69,6 +71,11 @@ export class Input implements InputAxes {
       if (e.code === 'F3') {
         e.preventDefault();
         if (!e.repeat) this.debugOverlay = !this.debugOverlay;
+        return;
+      }
+      if (e.code === 'Enter' || e.code === 'NumpadEnter') {
+        e.preventDefault();
+        if (!e.repeat) this.confirm = true;
         return;
       }
       const a = keyMap[e.code];
@@ -91,6 +98,13 @@ export class Input implements InputAxes {
       accelerate: this.down.has('accelerate'),
       brake: this.down.has('brake'),
     }, dt);
+  }
+
+  /** True once per Enter press (used to restart the race). */
+  consumeConfirm(): boolean {
+    const pressed = this.confirm;
+    this.confirm = false;
+    return pressed;
   }
 
   isDown(a: Action): boolean {

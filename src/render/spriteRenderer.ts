@@ -6,10 +6,15 @@ const { width: W, height: H } = config.render;
 const { segmentLength, roadWidth } = config.road;
 const { drawDistance } = config.camera;
 
-/** Something drawn on the road in the same pass as the scenery, so nearer hills can hide it (the bike). */
+/** Something drawn on the road in the same pass as the scenery, so nearer hills can hide it (the bikes). */
 export interface RoadSprite {
   /** Total distance travelled along the road. */
   readonly position: number;
+  /**
+   * Lateral position in road half-widths. When set, the sprite is placed on the road at that x (rivals).
+   * When undefined it is drawn at the screen centre (the player: the camera already follows their x).
+   */
+  readonly x?: number;
   /** Draw with its ground contact point at (x, y); scale is screen pixels per world unit. */
   draw(ctx: CanvasRenderingContext2D, x: number, y: number, scale: number): void;
 }
@@ -48,7 +53,7 @@ export class SpriteRenderer {
     const placed = roadSprites
       .map((sprite) => ({ sprite, i: Math.floor(sprite.position / segmentLength) - baseIndex }))
       .filter((p) => p.i >= 0 && p.i < drawDistance)
-      .sort((a, b) => b.i - a.i);
+      .sort((a, b) => b.i - a.i || b.sprite.position - a.sprite.position);
     let next = 0;
 
     ctx.imageSmoothingEnabled = false;
@@ -84,19 +89,39 @@ export class SpriteRenderer {
       }
 
       while (next < placed.length && placed[next].i === i) {
-        this.drawRoadSprite(cam, proj, placed[next].sprite, clip[i]);
+        this.drawRoadSprite(cam, proj, placed[next].sprite, i);
         next++;
       }
     }
   }
 
-  private drawRoadSprite(cam: { position: number }, proj: RoadProjection, sprite: RoadSprite, clipY: number): void {
+  private drawRoadSprite(cam: { position: number }, proj: RoadProjection, sprite: RoadSprite, i: number): void {
+    const { ctx } = this;
     const z = sprite.position - cam.position;
     if (z <= proj.depth) return;
-    const scale = proj.depth / z;
-    const y = H / 2 - scale * (this.track.heightAt(sprite.position) - proj.camY) * (H / 2);
-    // The camera follows the player's x, so the bike stays centred.
-    this.drawClipped(clipY, () => sprite.draw(this.ctx, W / 2, y, scale * (W / 2)));
+    const clipY = proj.clip[i];
+
+    if (sprite.x === undefined) {
+      // The camera follows the player's x, so the bike stays centred.
+      const scale = proj.depth / z;
+      const y = H / 2 - scale * (this.track.heightAt(sprite.position) - proj.camY) * (H / 2);
+      this.drawClipped(clipY, () => sprite.draw(ctx, W / 2, y, scale * (W / 2)));
+      return;
+    }
+
+    // Placed on the road: interpolate the projected road point under the sprite, like scenery.
+    const { sx, sy, sw } = proj;
+    const frac = (sprite.position - Math.floor(sprite.position / segmentLength) * segmentLength) / segmentLength;
+    const halfW = sw[i] + (sw[i + 1] - sw[i]) * frac;
+    const x = sx[i] + (sx[i + 1] - sx[i]) * frac + sprite.x * halfW;
+    const y = sy[i] + (sy[i + 1] - sy[i]) * frac;
+    const d = i / drawDistance;
+    const fog = 1 / Math.exp(d * d * config.fog.density);
+    this.drawClipped(clipY, () => {
+      if (fog < 0.99) ctx.globalAlpha = fog;
+      sprite.draw(ctx, x, y, halfW / roadWidth);
+      ctx.globalAlpha = 1;
+    });
   }
 
   /** Run `fn`, clipping away everything at and below clipY (where nearer terrain covers the view). */

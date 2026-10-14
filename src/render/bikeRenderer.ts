@@ -1,5 +1,4 @@
 import { config } from '../config';
-import type { Player } from '../entities/player';
 import type { RoadSprite } from './spriteRenderer';
 
 /** Drawn in a local space where the handlebars span 100 units; the origin is the rear tyre's ground contact. */
@@ -12,12 +11,55 @@ const RIDER_LYING_Y = -22;
 
 const easeOut = (t: number) => 1 - (1 - Math.min(1, Math.max(0, t))) ** 2;
 
-/** Rear-view bike and rider from canvas shapes. Reads the player only. */
+export type BikeColors = { -readonly [K in keyof typeof config.bike.colors]: string };
+
+/** What a bike drawing needs from whoever is riding it (the player or an AI rival). */
+export interface BikeVisual {
+  z: number;
+  speed: number;
+  lean: number;
+  /** Rivals never crash or flash, so these are optional. */
+  crashTimer?: number;
+  crashSpeed?: number;
+  crashDir?: number;
+  invincibleTimer?: number;
+  /** Lateral position in road half-widths (only used when the bike is placed on the road). */
+  x?: number;
+}
+
+export interface BikeOptions {
+  /** Colour overrides layered over config.bike.colors. */
+  colors?: Partial<BikeColors>;
+  /** Place the bike at its own x on the road. The player's bike stays centred instead. */
+  onRoad?: boolean;
+  /** Pixels to lift the bike above its ground point (the player's sits above the screen edge). */
+  lift?: number;
+}
+
+/** Pixels per local unit when the bike is at the player's distance: what bounce amplitude is relative to. */
+const REFERENCE_UNIT = ((config.render.width / 2) / config.camera.height) * (config.bike.width / BAR_SPAN);
+
+/** Rear-view bike and rider from canvas shapes. Reads its rider's state only. */
 export class BikeRenderer implements RoadSprite {
-  constructor(private readonly player: Player) {}
+  private readonly colors: BikeColors;
+  private readonly onRoad: boolean;
+  private readonly lift: number;
+
+  constructor(
+    private readonly player: BikeVisual,
+    options: BikeOptions = {},
+  ) {
+    this.colors = { ...config.bike.colors, ...options.colors };
+    this.onRoad = options.onRoad ?? false;
+    this.lift = options.lift ?? config.bike.bottomMargin;
+  }
 
   get position(): number {
     return this.player.z;
+  }
+
+  get x(): number | undefined {
+    return this.onRoad ? this.player.x : undefined;
   }
 
   draw(ctx: CanvasRenderingContext2D, x: number, y: number, scale: number): void {
@@ -26,14 +68,15 @@ export class BikeRenderer implements RoadSprite {
     const unit = (scale * b.width) / BAR_SPAN; // pixels per local unit
 
     ctx.save();
-    ctx.translate(x, y - b.bottomMargin);
+    ctx.translate(x, y - this.lift);
     ctx.scale(unit, unit);
 
-    if (player.crashTimer > 0) {
+    if ((player.crashTimer ?? 0) > 0) {
       this.drawCrash(ctx);
     } else {
       // Flash while invincible after a respawn.
-      const flashing = player.invincibleTimer > 0 && Math.floor(player.invincibleTimer * config.crash.invincibleFlashHz) % 2 === 0;
+      const invincible = player.invincibleTimer ?? 0;
+      const flashing = invincible > 0 && Math.floor(invincible * config.crash.invincibleFlashHz) % 2 === 0;
       if (flashing) ctx.globalAlpha = 0.3;
       this.drawRiding(ctx, unit);
     }
@@ -42,7 +85,7 @@ export class BikeRenderer implements RoadSprite {
   }
 
   private drawShadow(ctx: CanvasRenderingContext2D): void {
-    ctx.fillStyle = config.bike.colors.shadow;
+    ctx.fillStyle = this.colors.shadow;
     ctx.beginPath();
     ctx.ellipse(0, 0, 34, 7, 0, 0, Math.PI * 2);
     ctx.fill();
@@ -52,7 +95,8 @@ export class BikeRenderer implements RoadSprite {
     const { player } = this;
     const b = config.bike;
     const speedPercent = player.speed / config.physics.maxSpeed;
-    const bounce = Math.abs(Math.sin((player.z / b.bounceWavelength) * Math.PI)) * b.bounceAmplitude * speedPercent;
+    // Bounce height is in pixels at the player's distance, so scale it for smaller (farther) bikes.
+    const bounce = Math.abs(Math.sin((player.z / b.bounceWavelength) * Math.PI)) * b.bounceAmplitude * speedPercent * (unit / REFERENCE_UNIT);
 
     // Shadow stays flat on the road while the bike leans.
     this.drawShadow(ctx);
@@ -69,9 +113,9 @@ export class BikeRenderer implements RoadSprite {
   private drawCrash(ctx: CanvasRenderingContext2D): void {
     const { player } = this;
     const c = config.crash;
-    const e = c.duration - player.crashTimer; // seconds since impact
-    const k = 0.5 + 0.5 * player.crashSpeed;
-    const dir = player.crashDir;
+    const e = c.duration - (player.crashTimer ?? 0); // seconds since impact
+    const k = 0.5 + 0.5 * (player.crashSpeed ?? 1);
+    const dir = player.crashDir ?? 1;
 
     this.drawShadow(ctx);
     this.drawDust(ctx, e);
@@ -143,7 +187,7 @@ export class BikeRenderer implements RoadSprite {
 
   /** Rear tyre, exhaust, tail fairing and tail light. */
   private drawTail(ctx: CanvasRenderingContext2D): void {
-    const col = config.bike.colors;
+    const col = this.colors;
 
     ctx.fillStyle = col.tyre;
     ctx.beginPath();
@@ -171,7 +215,7 @@ export class BikeRenderer implements RoadSprite {
 
   /** Legs, boots, jacket and arms. */
   private drawRiderBody(ctx: CanvasRenderingContext2D): void {
-    const col = config.bike.colors;
+    const col = this.colors;
 
     ctx.fillStyle = col.pants;
     ctx.beginPath();
@@ -204,7 +248,7 @@ export class BikeRenderer implements RoadSprite {
 
   /** Handlebars, grips and mirrors. */
   private drawBars(ctx: CanvasRenderingContext2D): void {
-    const col = config.bike.colors;
+    const col = this.colors;
 
     ctx.lineCap = 'round';
     ctx.strokeStyle = col.bars;
@@ -228,7 +272,7 @@ export class BikeRenderer implements RoadSprite {
   }
 
   private drawHelmet(ctx: CanvasRenderingContext2D): void {
-    const col = config.bike.colors;
+    const col = this.colors;
 
     ctx.fillStyle = col.helmet;
     ctx.beginPath();

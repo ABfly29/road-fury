@@ -50,6 +50,20 @@ export const config = {
     wipeoutY: 0.32,
     /** Seconds for the wipeout text to pop in. */
     wipeoutPop: 0.25,
+    positionFont: 'bold 22px monospace',
+    positionColor: '#ffffff',
+    infoFont: 'bold 14px monospace',
+    infoX: 12,
+    infoBottom: 14,
+    countdownFont: 'bold 96px monospace',
+    countdownColors: ['#ff3b30', '#ffd23f', '#3ddc4a'],
+    goColor: '#3ddc4a',
+    resultsFont: 'bold 13px monospace',
+    resultsTitleFont: 'bold 30px monospace',
+    resultsBack: 'rgba(0, 0, 0, 0.72)',
+    resultsPlayer: '#ffd23f',
+    resultsText: '#ffffff',
+    resultsDim: '#9aa4b0',
   },
 
   road: {
@@ -264,6 +278,84 @@ export const config = {
     riderSpin: 7,
     /** Dust cloud lifetime (s). */
     dustTime: 1.2,
+  },
+
+  /** Race rules. */
+  race: {
+    laps: 2,
+    /** Seconds of 3-2-1 before GO; bikes are locked until GO. */
+    countdownSeconds: 3,
+    /** Seconds the GO! message stays up. */
+    goSeconds: 0.9,
+    /** Brake axis the player's bike coasts down with after finishing. */
+    finishBrake: 0.35,
+    /** Finished AI riders cruise at this fraction of their pace. */
+    finishCruise: 0.5,
+  },
+
+  /** AI rivals. They live in the same road space as the player: x in half-widths, z as total distance. */
+  rivals: {
+    seed: 4242,
+    /** Personal pace range, as a fraction of top speed. */
+    paceMin: 0.8,
+    paceMax: 0.93,
+    /** Starting grid ahead of the player: first row distance, spacing between rows, and the x of each side. */
+    gridFirstRow: 500,
+    gridRowSpacing: 500,
+    gridX: 0.35,
+    /** Lane centres (road half-widths) they wander between, and the furthest they will ever go (stay off the grass). */
+    lanes: [-0.75, -0.25, 0.25, 0.75],
+    maxX: 0.92,
+    /** Seconds between lane changes (random in this range). */
+    laneChangeMin: 3,
+    laneChangeMax: 8,
+    /** Lateral correction speed toward the target lane (1/s) and the most they move sideways (half-widths/s). */
+    laneGain: 2.5,
+    maxLateralSpeed: 0.9,
+    /**
+     * Scenery and traffic lookahead in world units: at least this far, and at least lookaheadTime seconds of travel
+     * (1,400 units is only ~0.13 s at top speed, too late to sidestep). `alongside` is how far behind still counts as level.
+     */
+    lookahead: 1400,
+    lookaheadTime: 0.8,
+    alongside: 250,
+    /** Seconds a rival allows itself to sidestep or brake for something in its path: caps how fast it closes on it. */
+    dodgeTime: 0.5,
+    /** Lateral half-width of an obstacle (riders), and extra clearance, in road half-widths. */
+    obstacleHalfWidth: 0.14,
+    clearance: 0.06,
+    /**
+     * Rivals ride under the player's own physics, so they must slow for curves too: they look this many
+     * segments ahead, brake at brakeFraction of the player's brake so they arrive at each curve no faster
+     * than curveMargin x the speed the bike can hold through it.
+     */
+    curveLookahead: 40,
+    brakeFraction: 0.9,
+    curveMargin: 0.97,
+    /** Never faster than this fraction of top speed, whatever the rubber band says. */
+    maxSpeedFraction: 1,
+    /** Rubber band, as distance (world units) ahead of / behind the player, and the speed multiplier applied. */
+    rubber: { distance: 3000, ahead: 0.9, behind: 1.12, ramp: 500 },
+    names: ['Razor', 'Vixen', 'Nitro Nick', 'Blaze', 'Ghost', 'Viper', 'Rocket'],
+    /** Colour schemes layered over config.bike.colors. */
+    schemes: [
+      { jacket: '#e8c600', sleeve: '#b89c00', body: '#222222', helmet: '#f2f2f2', helmetStripe: '#111111' },
+      { jacket: '#1e9e4a', sleeve: '#14753a', body: '#e8e8e8', helmet: '#c8f5d4', helmetStripe: '#0d5c2a' },
+      { jacket: '#ee7a14', sleeve: '#bb5a08', body: '#1d1d1d', helmet: '#ffffff', helmetStripe: '#ee7a14' },
+      { jacket: '#7b3fc6', sleeve: '#5c2c98', body: '#f0f0f0', helmet: '#d9c8f5', helmetStripe: '#3d1d70' },
+      { jacket: '#16a3a3', sleeve: '#0f7c7c', body: '#1b2a3a', helmet: '#eaffff', helmetStripe: '#0a5555' },
+      { jacket: '#e0488c', sleeve: '#b3306d', body: '#222222', helmet: '#ffe0ef', helmetStripe: '#a01f5c' },
+      { jacket: '#2b2b2b', sleeve: '#1a1a1a', body: '#d62828', helmet: '#444444', helmetStripe: '#ffffff' },
+    ],
+  },
+
+  /** Rider-on-rider contact. */
+  bump: {
+    /** Riders overlap when closer than this along the road (world units) and across it (half-widths). */
+    depth: 420,
+    width: 0.16,
+    /** How fast overlapping riders are pushed apart sideways (half-widths/s each). */
+    pushSpeed: 0.8,
   },
 
   fog: {
