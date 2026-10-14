@@ -12,7 +12,7 @@ import { Background } from '../src/render/background';
 import { BikeRenderer } from '../src/render/bikeRenderer';
 import { drawHud } from '../src/render/hudLayer';
 import { RoadRenderer } from '../src/render/roadRenderer';
-import { SceneBuffer } from '../src/render/screenFx';
+import { PostFx, SceneBuffer } from '../src/render/screenFx';
 
 const track = createSampleTrack();
 const segLen = config.road.segmentLength;
@@ -29,7 +29,8 @@ function makeScene(ctx: CanvasRenderingContext2D) {
   const player = createPlayer();
   const cam = createCamera();
   const buffer = new SceneBuffer();
-  const bg = new Background(buffer.ctx);
+  const bg = new Background();
+  const post = new PostFx();
   const road = new RoadRenderer(buffer.ctx, track);
   const rivals = createRivals();
   const race = createRace(track.length, rivals.length + 1);
@@ -49,9 +50,10 @@ function makeScene(ctx: CanvasRenderingContext2D) {
       updateCamera(cam, player, track, axes, 0);
       ctx.fillStyle = config.render.backgroundColor;
       ctx.fillRect(0, 0, config.render.width, config.render.height);
-      bg.draw(buffer.ctx, cam.parallax);
+      bg.draw(buffer.ctx, cam);
       road.render(cam, sprites);
       buffer.present(ctx, player, cam.roll);
+      post.apply(ctx);
       drawHud(ctx, { player, race, camera: cam, debugAxes: this.debug ? axes : undefined });
     },
   };

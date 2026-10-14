@@ -24,6 +24,8 @@ export function updateCamera(cam: CameraState, player: Player, track: Track, axe
 
   // Mountains shift against the bend: a right curve (positive) pushes them left.
   const curve = track.segmentAt(player.z).curve;
+  const clouds = config.background.clouds;
+  cam.cloudOffset += (clouds.drift + curve * speedPercent * clouds.curveParallax) * dt;
   config.background.layers.forEach((layer, i) => {
     cam.parallax[i] += curve * speedPercent * layer.speed * dt;
   });

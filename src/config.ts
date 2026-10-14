@@ -1,5 +1,8 @@
 /** All tuning values live here. No magic numbers elsewhere. */
 
+/** The colour the horizon haze, distance fog and the bottom of the sky all share. */
+const HAZE = '#d6e4ef';
+
 const SEGMENT_LENGTH = 200;
 const UPDATE_HZ = 60;
 
@@ -399,7 +402,7 @@ export const config = {
   fog: {
     /** Exponential fog: factor = 1 / e^(t^2 * density), t = distance / drawDistance. */
     density: 5,
-    color: '#c9d8e6',
+    color: HAZE,
   },
 
   /**
@@ -456,16 +459,75 @@ export const config = {
     },
   },
 
+  /** Painted-style sky, drifting clouds, hazy mountains and the sun, all generated in code at start-up. */
   background: {
-    skyTop: '#2f6fc8',
-    skyHorizon: '#c9d8e6',
-    /** Parallax mountain layers, far to near. speed = layer widths/s per unit curve at top speed. */
+    sky: {
+      /** Vertical gradient from the top of the screen to the horizon. */
+      stops: [
+        [0, '#1c56a6'],
+        [0.4, '#3f86d2'],
+        [0.75, '#86b7e4'],
+        [1, HAZE],
+      ],
+      /** Soft mottling and brush streaks that make the gradient look painted (count, strength 0..1). */
+      mottle: { blotches: 240, streaks: 110, strength: 0.032 },
+    },
+    clouds: {
+      seed: 2024,
+      /** Cumulus clouds across one cloud layer (which is layerWidthScale screens wide and wraps). */
+      count: 11,
+      /** Layer widths per second the clouds drift, and how much a curve at speed adds to that. */
+      drift: 0.0035,
+      curveParallax: 0.004,
+      /** Puffs per cloud, cloud size range in pixels (larger higher in the sky), and the base height range as a fraction of the sky. */
+      puffs: [26, 44],
+      width: [150, 330],
+      baseY: [0.2, 0.78],
+      /** Lit tops lean toward the sun; shadowed undersides. */
+      light: '#fffaf0',
+      shade: '#9db6d6',
+    },
+    sun: {
+      /** Position: fraction of the screen width, and pixels above the horizon. */
+      x: 0.7,
+      above: 150,
+      /** Glow radius in pixels and strength 0..1; the core is the small bright disc. */
+      glowRadius: 380,
+      glow: 0.55,
+      core: 20,
+      color: [255, 232, 176],
+    },
+    /**
+     * Distant mountains, far to near: hazy blue ridgelines that fade into the haze at the foot.
+     * speed = layer widths per second per unit of curve at top speed (parallax on curves).
+     * Ridgelines are midpoint-displaced: roughness = how fast the displacement shrinks per level (lower = more
+     * jagged), sharpen > 1 pulls the peaks up and the valleys wider.
+     */
     layers: [
-      { color: '#97b3a6', height: 165, points: 9, minPeak: 0.35, maxPeak: 1, speed: 0.015, seed: 11 },
-      { color: '#5f8c63', height: 105, points: 13, minPeak: 0.3, maxPeak: 1, speed: 0.03, seed: 29 },
+      { top: '#7fa3d1', bottom: '#cddfef', height: 175, roughness: 0.95, sharpen: 1.5, speed: 0.008, seed: 11, rim: 0.16 },
+      { top: '#6189c0', bottom: '#a9c4e2', height: 135, roughness: 0.85, sharpen: 1.4, speed: 0.017, seed: 29, rim: 0.2 },
+      { top: '#446fae', bottom: '#8aaed5', height: 95, roughness: 0.78, sharpen: 1.3, speed: 0.029, seed: 47, rim: 0.24 },
     ],
     /** Layer canvas width as a multiple of the screen width (must be >= 1). */
     layerWidthScale: 2,
+    /** Haze band over the horizon: how tall (pixels) and how opaque at the horizon line. */
+    haze: { height: 120, strength: 0.72 },
+  },
+
+  /**
+   * Final-frame look, applied to the scene (not the HUD). Baked into two overlays at start-up (a multiply layer for
+   * the tint and vignette, and a plain-alpha warm layer), because blend modes on the live frame are slow.
+   */
+  colorGrade: {
+    /** Multiply tint that takes a little blue out of everything. */
+    tint: '#fff0dc',
+    /** Warm wash over everything, and extra warmth around the sun (alpha 0..1). */
+    warm: '#ffb06a',
+    warmAlpha: 0.07,
+    warmGlow: 0.16,
+    /** Vignette: how much the corners darken (0..1), and where it starts as a fraction of the half-diagonal. */
+    vignette: 0.27,
+    vignetteStart: 0.58,
   },
 
   track: {

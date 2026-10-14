@@ -5,7 +5,7 @@ import { drawHud } from '../render/hudLayer';
 import { Background } from '../render/background';
 import { BikeRenderer } from '../render/bikeRenderer';
 import { RoadRenderer } from '../render/roadRenderer';
-import { SceneBuffer } from '../render/screenFx';
+import { PostFx, SceneBuffer } from '../render/screenFx';
 import { createCamera } from '../entities/camera';
 import { createPlayer } from '../entities/player';
 import { createRace } from '../entities/race';
@@ -28,6 +28,7 @@ export class Game {
   private fps = new FpsCounter();
   private track = createSampleTrack();
   private scene = new SceneBuffer();
+  private post: PostFx;
   private background: Background;
   private road: RoadRenderer;
 
@@ -45,7 +46,8 @@ export class Game {
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('2D canvas not supported');
     this.ctx = ctx;
-    this.background = new Background(this.scene.ctx);
+    this.background = new Background();
+    this.post = new PostFx();
     this.road = new RoadRenderer(this.scene.ctx, this.track);
     updateCamera(this.camera, this.player, this.track, ZERO_AXES, 0);
   }
@@ -111,9 +113,10 @@ export class Game {
     ctx.fillRect(0, 0, W, H);
 
     // The scene is drawn flat, then blitted with the crash shake and the roll; the HUD stays level.
-    this.background.draw(this.scene.ctx, camera.parallax);
+    this.background.draw(this.scene.ctx, camera);
     this.road.render(camera, this.sprites);
     this.scene.present(ctx, player, camera.roll);
+    this.post.apply(ctx); // grade and vignette over the scene, under the HUD
 
     drawHud(ctx, { player, race, camera, fps: this.fps, debugAxes: this.input.debugOverlay ? this.input : undefined });
   }

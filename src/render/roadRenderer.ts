@@ -32,17 +32,26 @@ export class RoadRenderer {
   };
   private readonly spriteRenderer: SpriteRenderer;
   private readonly textures = new Textures();
+  /** The road and terrain are drawn here, on a transparent layer, then composited over the background. */
+  private readonly terrain: HTMLCanvasElement;
+  private readonly terrainCtx: CanvasRenderingContext2D;
 
   constructor(
     private readonly ctx: CanvasRenderingContext2D,
     private readonly track: Track,
   ) {
     this.spriteRenderer = new SpriteRenderer(ctx, track);
+    this.terrain = document.createElement('canvas');
+    this.terrain.width = W;
+    this.terrain.height = H;
+    this.terrainCtx = this.terrain.getContext('2d')!;
   }
 
   render(cam: CameraState, sprites: readonly RoadSprite[] = []): void {
     this.project(cam);
+    this.terrainCtx.clearRect(0, 0, W, H);
     this.draw(cam);
+    this.ctx.drawImage(this.terrain, 0, 0);
     this.spriteRenderer.draw(cam, this.proj, sprites);
   }
 
@@ -80,7 +89,7 @@ export class RoadRenderer {
   }
 
   private draw(cam: CameraState): void {
-    const { ctx, sx, sy, sw, cz, clip, textures } = this;
+    const { terrainCtx: ctx, sx, sy, sw, cz, clip, textures } = this;
     const depth = this.proj.depth;
     const segs = this.track.segments;
     const n = segs.length;
@@ -134,14 +143,17 @@ export class RoadRenderer {
         );
       }
 
-      // Exponential distance fog.
+      // Atmospheric fade: erase distant segments toward transparent, so that once the layer is composited the
+      // haze, mountains and sky behind show through (a flat fog colour would leave a hard edge against them).
       const d = i / drawDistance;
-      const fogAlpha = 1 - 1 / Math.exp(d * d * config.fog.density);
-      if (fogAlpha > 0.005) {
-        ctx.globalAlpha = fogAlpha;
-        ctx.fillStyle = config.fog.color;
+      const fade = 1 - 1 / Math.exp(d * d * config.fog.density);
+      if (fade > 0.005) {
+        ctx.globalCompositeOperation = 'destination-out';
+        ctx.globalAlpha = fade;
+        ctx.fillStyle = '#000';
         ctx.fillRect(0, y2, W, height);
         ctx.globalAlpha = 1;
+        ctx.globalCompositeOperation = 'source-over';
       }
 
       maxY = y2;

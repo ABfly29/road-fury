@@ -12,7 +12,7 @@ import { Background } from '../src/render/background';
 import { BikeRenderer } from '../src/render/bikeRenderer';
 import { drawHud } from '../src/render/hudLayer';
 import { RoadRenderer } from '../src/render/roadRenderer';
-import { SceneBuffer } from '../src/render/screenFx';
+import { PostFx, SceneBuffer } from '../src/render/screenFx';
 
 const track = createSampleTrack();
 const segLen = config.road.segmentLength;
@@ -64,7 +64,7 @@ if (countdown === null) {
 
 const cam = createCamera();
 const buffer = new SceneBuffer();
-const bg = new Background(buffer.ctx);
+const bg = new Background();
 const road = new RoadRenderer(buffer.ctx, track);
 const sprites = [
   new BikeRenderer(player),
@@ -72,8 +72,9 @@ const sprites = [
 ];
 
 updateCamera(cam, player, track, ZERO_AXES, 0);
-bg.draw(buffer.ctx, cam.parallax);
+bg.draw(buffer.ctx, cam);
 road.render(cam, sprites);
 buffer.present(ctx, player, cam.roll);
+new PostFx().apply(ctx);
 drawHud(ctx, { player, race, camera: cam });
 document.title = `ready ${index}`;

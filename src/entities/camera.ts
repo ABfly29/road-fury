@@ -19,6 +19,8 @@ export interface CameraState {
   roll: number;
   /** Per-layer parallax offsets in layer widths, one per mountain layer. */
   parallax: number[];
+  /** How far the cloud layer has drifted, in layer widths (wraps). */
+  cloudOffset: number;
 }
 
 export function createCamera(): CameraState {
@@ -29,5 +31,6 @@ export function createCamera(): CameraState {
     fovKick: 0,
     roll: 0,
     parallax: config.background.layers.map(() => 0),
+    cloudOffset: 0,
   };
 }
